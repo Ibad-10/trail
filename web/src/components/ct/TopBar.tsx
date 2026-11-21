@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Moon, Search, Sun } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useJson, type CaseSummary, instName } from "@/lib/ct";
 import { VerdictBadge } from "./VerdictBadge";
 
@@ -42,6 +42,7 @@ export function TopBar() {
         <Sun className="size-4 dark:hidden" aria-hidden="true" /><Moon className="hidden size-4 dark:block" aria-hidden="true" />
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen} title="Search cases" description="Search by case ID, customer or reason code">
+        <Command shouldFilter={false}>
         <CommandInput placeholder="Case ID, customer or reason code" value={q} onValueChange={setQ} />
         <CommandList>
           <CommandEmpty>{data ? "No matching cases." : "Loading cases"}</CommandEmpty>
@@ -56,6 +57,7 @@ export function TopBar() {
             ))}
           </CommandGroup>
         </CommandList>
+        </Command>
       </CommandDialog>
     </header>
   );
