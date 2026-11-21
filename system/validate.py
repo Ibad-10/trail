@@ -2,7 +2,7 @@
 """Check an output file against its institution folder: one line per case, codes valid, cited IDs exist."""
 import json, os, re, sys, collections
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from controltrail import VERDICT_OF, load_jsonl
+from trail import VERDICT_OF, load_jsonl
 
 folder, out = sys.argv[1], sys.argv[2]
 cases = {c["case_id"]: c for c in load_jsonl(os.path.join(folder, "cases.jsonl"))}

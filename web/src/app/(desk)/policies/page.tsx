@@ -20,7 +20,7 @@ export default function Policies() {
     <div className="space-y-8">
       <div>
         <h1 className="font-serif text-3xl md:text-4xl">Policies</h1>
-        <p className="mt-1 max-w-2xl text-muted-foreground">Each institution&apos;s own SOP is the rulebook. ControlTrail reads the limits and country list from each POLICY.md and applies the same three steps.</p>
+        <p className="mt-1 max-w-2xl text-muted-foreground">Each institution&apos;s own SOP is the rulebook. Trail reads the limits and country list from each POLICY.md and applies the same three steps.</p>
       </div>
       <div className="grid gap-3 md:grid-cols-3">
         {STEPS.map((s) => (

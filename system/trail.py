@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""ControlTrail: deterministic transaction-monitoring alert triage.
+"""Trail: deterministic transaction-monitoring alert triage.
 
-Usage: controltrail.py <institution folder> <output file>
+Usage: trail.py <institution folder> <output file>
 
 Rules gather evidence, the institution's POLICY.md decides, every claim cites a source ID.
 Standard library only. No model, no randomness, no clock: same input bytes give the same output bytes.
@@ -373,14 +373,14 @@ def suspicion(c):
                             first, ", ".join(c.doc_ids(rpts)), gbp(sum(amts)), c.summary()),
                         c.ev(c.doc_ids(rpts), c.doc_ids(c.chats()), hits or c.alert_txn_ids))
 
-    if re.search(r"send it on|keep \d+% as my wages|crypto account|payments assistant", chat):
+    if re.search(r"send (it|them|the money|the funds) on|pass (it|them|the money) on|forward (it|the money|the funds)|keep \d+ ?%|my (cut|commission|wages) from|crypto (account|wallet)|payments? (assistant|agent|processor)|money transfer agent|transfer agent job", chat):
         return Decision("ESC_MULE_ACTIVITY",
                         "In support chat %s, %s says clients of a 'job' pay into the account and they send the money on, keeping a cut. "
                         "The alerts show %s: the account moves other people's money for someone else." % (
                             ", ".join(c.doc_ids(c.chats())), first, c.summary()),
                         c.ev(c.doc_ids(c.chats()), c.alert_txn_ids))
 
-    if re.search(r"invest for a few people|investing through mine|money to invest for them|sent me money to invest", chat):
+    if re.search(r"invest(ing)? for (a few|some|other) (people|friends)|investing through (mine|my account)|money to invest for them|sent me money to invest|(using|use) my account (to|for) invest|on behalf of (my )?(friends|cousins|relatives)", chat):
         code = "ESC_EARLY_REDEMPTION" if c.has("TM10") else "ESC_THIRD_PARTY_FUNDING"
         return Decision(code,
                         "In support chat %s, %s says they hold or move money for other people (friends or relatives investing through their account). "
@@ -390,7 +390,7 @@ def suspicion(c):
                         c.ev(c.doc_ids(c.chats()), c.alert_txn_ids))
 
     notes = [d for d in c.docs_of("staff_note") if re.search(
-        r"aggregat|exempt|breaking down|splitting|structuring|reporting threshold|below £?10,000|under £?10,000|keeping individual", d["text"], re.I)]
+        r"aggregat|exempt|breaking (down|up)|splitting|split (the |my )?(payments|deposits|amounts)|structur|reporting (threshold|limit)|below (the )?(£?10,000|threshold|limit)|under (the )?(£?10,000|threshold|limit)|keeping (each |individual )|avoid (the )?(report|check|invoice)", d["text"], re.I)]
     if notes:
         return Decision("ESC_STRUCTURING",
                         "Staff note %s records the customer asking whether keeping amounts below the threshold or splitting them avoids reporting or invoice checks. "
@@ -409,7 +409,7 @@ def suspicion(c):
                                 c.ev([d["doc_id"]], c.alert_txn_ids))
 
     dissolved = [d for d in c.docs_of("company_register_extract") if "dissolved" in d["text"].lower()]
-    if re.search(r"loan (provided by |i received from )?(from )?a friend|loan from a friend|from a friend", chat) and (dissolved or c.has("TM02", "TM01")):
+    if re.search(r"loan (provided by |i received from |given by )?(from )?a (friend|mate|pal)|from a (friend|mate)|friend (lent|loaned) me", chat) and (dissolved or c.has("TM02", "TM01")):
         payer = dissolved[0]["f"].get("company", "a company") if dissolved else "the payer"
         return Decision("ESC_UNEXPLAINED_FUNDS",
                         "%s says in chat %s that the money is a loan from a friend, but it came from %s%s. "
@@ -430,7 +430,7 @@ def suspicion(c):
                         "The alerts show %s, so the funds are unexplained and were moved on." % (first, ", ".join(c.doc_ids(c.chats())), c.summary()),
                         c.ev(c.doc_ids(c.chats()), c.alert_txn_ids))
 
-    if c.has("TM06") and re.search(r"help my family|family there|friend of the family", chat) and not c.docs_of("hospital_invoice", "invoice"):
+    if c.has("TM06") and re.search(r"help (my|the) family|family (there|back home|support)|support(ing)? (my )?(family|relatives)|friend of the family|for (my )?relatives", chat) and not c.docs_of("hospital_invoice", "invoice"):
         a = c.alert("TM06")
         return Decision("ESC_HIGH_RISK_CORRIDOR",
                         "%s moved %s to or from a higher-risk country they never declared, and chat %s gives only 'family support' with no names or documents. "
@@ -438,7 +438,7 @@ def suspicion(c):
                             first, c.alert_amounts_text(a), ", ".join(c.doc_ids(c.chats())), c.summary()),
                         c.ev(c.doc_ids(c.chats()), c.alert_txn_ids))
 
-    evasive = [d for d in c.docs_of("staff_note") if re.search(r"unable|unwilling|evasive|could not|would not|declined|refused|however", d["text"], re.I)]
+    evasive = [d for d in c.docs_of("staff_note") if re.search(r"unable|unwilling|evasive|could not|would not|couldn't|wouldn't|declined|refused|reluctant|vague|however", d["text"], re.I)]
     if evasive:
         code = "ESC_HIGH_RISK_CORRIDOR" if c.has("TM06") else "ESC_INVOICE_MISMATCH"
         inv = c.docs_of("supplier_invoices", "supplier_invoice", "invoice")

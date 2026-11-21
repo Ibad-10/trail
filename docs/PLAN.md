@@ -1,7 +1,7 @@
-# ControlTrail: design and build plan (Sat 21 Nov 2026)
+# Trail: design and build plan (Sat 21 Nov 2026)
 
 ## The idea in one paragraph
-ControlTrail is a deterministic alert-triage engine for transaction monitoring. For each case it gathers the evidence on file (transactions, documents, company registers, the internal list), checks it against the institution's own `POLICY.md`, and decides one of three things:
+Trail is a deterministic alert-triage engine for transaction monitoring. For each case it gathers the evidence on file (transactions, documents, company registers, the internal list), checks it against the institution's own `POLICY.md`, and decides one of three things:
 - **ESCALATE** when anything is suspicious.
 - **CLOSE** only when every alert is explained by a document that matches the money.
 - **RFI** naming the one thing to ask the customer, when nothing is suspicious but something is unexplained.

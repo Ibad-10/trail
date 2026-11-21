@@ -1,4 +1,4 @@
-# ControlTrail feature list
+# Trail feature list
 
 Brainstormed on Sat 21 Nov 2026 during the Grok Bot London Financial Crime Hackathon (Track 1). Time limits are ignored on purpose: this is the long list for the product, not today's to-do list. Today's build order is in `docs/PLAN.md`.
 
@@ -122,7 +122,7 @@ The scored engine (`system/run`) must stay deterministic and read only the insti
 | 7.4 | Policy playground: drag a slider (e.g. own-account multiple 5× → 4×) and watch the queue re-sort live | Wow | Makes "policy as code" tangible |
 | 7.5 | Explain to the customer: a plain-English RFI letter, checked for tipping-off words | Nice | Customer experience |
 | 7.6 | Regulator replay pack: zip of inputs, policy version, engine version and outputs that re-runs to the same hashes | Wow | What an independent tester wants |
-| 7.7 | Agent sidecar: an LLM agent (e.g. via Banyan or a Grok Bot skill) proposes, and ControlTrail's rules accept or reject with reasons | Later | Combines agent flexibility with deterministic control |
+| 7.7 | Agent sidecar: an LLM agent (e.g. via Banyan or a Grok Bot skill) proposes, and Trail's rules accept or reject with reasons | Later | Combines agent flexibility with deterministic control |
 | 7.8 | Peer benchmark: anonymised close rates by rule across firms (needs a data-sharing agreement) | Later | Industry view |
 
 ## 8. Accessibility (applies to every screen)

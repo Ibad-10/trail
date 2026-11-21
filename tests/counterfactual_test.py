@@ -30,7 +30,7 @@ with open(os.path.join(dst, "evidence.jsonl"), "w", encoding="utf-8") as f:
     f.writelines(kept)
 
 cf = os.path.join(tmp, "cf.jsonl")
-subprocess.check_call([sys.executable, os.path.join(here, "..", "system", "controltrail.py"), dst, cf])
+subprocess.check_call([sys.executable, os.path.join(here, "..", "system", "trail.py"), dst, cf])
 after = {json.loads(l)["case_id"]: json.loads(l) for l in open(cf, encoding="utf-8")}
 survived = [c for c in closes if after[c]["verdict"] == "CLOSE"]
 moved = {}

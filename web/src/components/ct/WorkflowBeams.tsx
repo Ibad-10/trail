@@ -25,7 +25,7 @@ export function WorkflowBeams() {
     { Icon: Check, l: "Close", c: "var(--close)" }, { Icon: HelpCircle, l: "Ask (RFI)", c: "var(--rfi)" }, { Icon: ShieldAlert, l: "Escalate", c: "var(--esc)" },
   ];
   return (
-    <div ref={box} className="relative flex w-full items-center justify-between gap-6 overflow-hidden rounded-2xl border bg-card/60 p-6 backdrop-blur md:p-10" aria-label="Workflow: alert, transactions, documents, registers and internal list flow into ControlTrail, which decides close, RFI or escalate">
+    <div ref={box} className="relative flex w-full items-center justify-between gap-6 overflow-hidden rounded-2xl border bg-card/60 p-6 backdrop-blur md:p-10" aria-label="Workflow: alert, transactions, documents, registers and internal list flow into Trail, which decides close, RFI or escalate">
       <div className="flex flex-col gap-3">
         {IN.map(({ Icon, l }, i) => <Node key={l} ref={ins[i]} label={l}><Icon className="size-5" aria-hidden="true" /></Node>)}
       </div>

@@ -1,10 +1,10 @@
-# ControlTrail: how the system decides
+# Trail: how the system decides
 
 ```
 system/run <institution folder> <output file>
 ```
 
-`run` is a bash wrapper around `controltrail.py`, which uses only the Python 3 standard library. It reads only the institution folder it is given and writes only the output file. It doesn't depend on the working directory.
+`run` is a bash wrapper around `trail.py`, which uses only the Python 3 standard library. It reads only the institution folder it is given and writes only the output file. It doesn't depend on the working directory.
 
 **No language model is used.** Verdicts, reason codes, reasons and evidence come from rules and templates, so there is no API key, no network call and no cost. `OPENROUTER_API_KEY` is not read.
 

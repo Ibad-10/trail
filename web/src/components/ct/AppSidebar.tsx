@@ -23,7 +23,7 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="px-4 pt-5 pb-3">
-        <Link href="/" aria-label="ControlTrail home"><Logo /></Link>
+        <Link href="/" aria-label="Trail home"><Logo /></Link>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build viewer/data.js from the dataset and ControlTrail's output (outside the scored system).
+"""Build viewer/data.js from the dataset and Trail's output (outside the scored system).
 
 usage: python viewer/build.py <institutions root> <output dir>
 The data file quotes the development data, so it is git-ignored and built locally.
@@ -11,7 +11,7 @@ import sys
 
 here = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(here, "..", "system"))
-from controltrail import Folder, Case, table_rows, norm  # noqa: E402
+from trail import Folder, Case, table_rows, norm  # noqa: E402
 
 root, outdir = sys.argv[1], sys.argv[2]
 cases = []

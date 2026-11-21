@@ -7,7 +7,7 @@ export function Logo() {
         <circle cx="12" cy="18" r="2.6" fill="var(--rfi)" />
         <circle cx="19" cy="6" r="2.6" fill="var(--esc)" />
       </svg>
-      <span className="font-serif text-xl leading-none tracking-tight">ControlTrail</span>
+      <span className="font-serif text-xl leading-none tracking-tight">Trail</span>
     </span>
   );
 }

@@ -18,7 +18,7 @@ import tempfile
 
 src = os.path.abspath(sys.argv[1])
 here = os.path.dirname(os.path.abspath(__file__))
-run = [sys.executable, os.path.join(here, "..", "system", "controltrail.py")]
+run = [sys.executable, os.path.join(here, "..", "system", "trail.py")]
 tmp = tempfile.mkdtemp()
 dst = os.path.join(tmp, os.path.basename(src.rstrip("/\\")))
 rng = random.Random(7)

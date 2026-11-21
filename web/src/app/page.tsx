@@ -24,7 +24,7 @@ const REASONS = [
 const GAP = [
   { Icon: Bot, t: "AI agents", who: "Unit21, Axle, Zomma, Bretton", d: "Read the case and decide with a language model. Fast, but runs can disagree and the reason is hard to replay." },
   { Icon: Network, t: "Graph tools", who: "Quantexa, Linkurious, Sayari", d: "Show who is connected to whom. A person still has to read it and decide." },
-  { Icon: ScrollText, t: "ControlTrail", who: "Policy as code", d: "Compiles the firm's own SOP into checks, decides, and cites a source for every link. Same input, same answer.", us: true },
+  { Icon: ScrollText, t: "Trail", who: "Policy as code", d: "Compiles the firm's own SOP into checks, decides, and cites a source for every link. Same input, same answer.", us: true },
 ];
 
 const USERS = [
@@ -61,7 +61,7 @@ export default function Home() {
                 Close what the evidence explains. <em className="text-muted-foreground">Escalate the rest with the path.</em>
               </h1>
               <p className="mt-5 max-w-lg text-base text-muted-foreground md:text-lg">
-                ControlTrail reads every alert the way a careful analyst would, under the firm&apos;s own policy, and cites a source for every claim.
+                Trail reads every alert the way a careful analyst would, under the firm&apos;s own policy, and cites a source for every claim.
               </p>
               <div className="mt-7 flex flex-wrap gap-3">
                 <Button size="lg" nativeButton={false} render={<Link href="/queue" />}>Open the alert queue <ArrowRight className="size-4" /></Button>

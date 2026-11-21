@@ -1,8 +1,8 @@
-# ControlTrail
+# Trail
 
 **Rules gather the evidence. The firm's policy decides. Every link has a source.**
 
-ControlTrail is a deterministic alert-triage engine for transaction monitoring. It was built solo at the Grok Bot London Financial Crime Hackathon (Sat 21 Nov 2026), Track 1, "Build a system that closes alerts safely", designed by Diligent.
+Trail is a deterministic alert-triage engine for transaction monitoring. It was built solo at the Grok Bot London Financial Crime Hackathon (Sat 21 Nov 2026), Track 1, "Build a system that closes alerts safely", designed by Diligent.
 
 For each case it reads the alerts, the customer, their transactions and every document on file, then follows the institution's own `POLICY.md`:
 - **ESCALATE** when anything is suspicious. The customer is never asked, so there is no tipping off.
