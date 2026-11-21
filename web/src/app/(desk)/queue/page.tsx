@@ -57,7 +57,7 @@ export default function QueuePage() {
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search customer, case ID, reason…" className="pl-9" aria-label="Search the queue" />
         </div>
-        <Select value={verdict} onValueChange={(v) => set("v", String(v))}>
+        <Select value={verdict} items={{ all: "All decisions", CLOSE: "✓ Close", RFI: "? Ask customer", ESCALATE: "⚠ Escalate" }} onValueChange={(v) => set("v", String(v))}>
           <SelectTrigger className="sm:w-44" aria-label="Filter by decision"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All decisions</SelectItem>
@@ -66,7 +66,7 @@ export default function QueuePage() {
             <SelectItem value="ESCALATE">⚠ Escalate</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={rule} onValueChange={(v) => set("rule", String(v))}>
+        <Select value={rule} items={{ all: "All rules", ...Object.fromEntries(Object.entries(RULES).map(([k, v]) => [k, `${k} · ${v}`])) }} onValueChange={(v) => set("rule", String(v))}>
           <SelectTrigger className="sm:w-56" aria-label="Filter by rule"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All rules</SelectItem>

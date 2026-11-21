@@ -9,3 +9,4 @@ CLAUDE.md
 labels/
 viewer/data.js
 web/public/data/
+.playwright-mcp/
