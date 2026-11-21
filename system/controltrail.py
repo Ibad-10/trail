@@ -300,7 +300,9 @@ def resolve_list(case, a):
             ", ".join(sorted(set(r[3] for r in rows)))), ev + [r[3] for r in rows]
 
     # Address or company match: the register names who runs the company.
-    regs = case.docs_of("company_register_extract")
+    cp = norm(pay["counterparty_name"]) if pay else ""
+    regs = [d for d in case.docs_of("company_register_extract")
+            if cp and cp in norm(d["text"].splitlines()[0] + " " + d["f"].get("company", ""))]
     if "address" in matched_on and regs and entry.get("kind") == "individual":
         officers = set()
         for d in regs:
@@ -663,7 +665,7 @@ def explain(c):
                          "Email %s from %s says %s was paid into the investment account by mistake and asks for it back to their own savings account. "
                          "The withdrawal went to an account in the customer's own name, so the money only moved between their own accounts." % (
                              em[0]["doc_id"], first, gbp(hits[0]["amount_gbp"])),
-                         [em[0]["doc_id"]], [t["transaction_id"] for t in hits])
+                         [em[0]["doc_id"]], c.doc_ids(D("bank_statement")), [t["transaction_id"] for t in hits])
 
     letter = [d for d in D("customer_letter") if re.search(r"relocat|moved to", d["text"], re.I)]
     if letter and c.has("TM06"):
@@ -671,14 +673,14 @@ def explain(c):
                      "Letter %s from %s says they moved abroad for a new job and asks for withdrawals to go to their own account there. "
                      "The higher-risk-country withdrawals (%s) follow the customer's own documented instructions." % (
                          letter[0]["doc_id"], first, c.alert_amounts_text(c.alert("TM06"))),
-                     [letter[0]["doc_id"]], c.alert_txn_ids)
+                     [letter[0]["doc_id"]], c.doc_ids(D("bank_statement")), c.alert_txn_ids)
 
     emp = D("employment_contract")
     if emp and c.has("TM06", "TM01"):
         return close("WITHIN_PROFILE",
                      "Employment contract %s shows %s works abroad for the employer paying in. "
                      "The salary payments behind the alerts (%s) fit this documented employment." % (emp[0]["doc_id"], first, s),
-                     [emp[0]["doc_id"]], c.alert_txn_ids)
+                     [emp[0]["doc_id"]], c.doc_ids(D("bank_statement")), c.alert_txn_ids)
 
     rvf = D("reverification_record")
     if rvf and c.has("TM07"):
