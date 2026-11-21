@@ -61,29 +61,90 @@ The cost of getting it wrong is lopsided. Closing an alert that needed attention
 
 ## How Trail works
 
+### 1. Where every input comes from, and what reads it
+
+Each institution folder is the case export a monitoring system already produces. Trail reads only that folder. Every box on the right is a function in [`system/trail.py`](system/trail.py).
+
 ```mermaid
 flowchart LR
-  subgraph IN [Case files the TM system already exports]
-    A[alerts] --- T[transactions] --- C[customer]
-    D[documents .md] --- L[internal list] --- P[POLICY.md]
+  subgraph FOLDER ["Institution folder (one per firm)"]
+    POL["POLICY.md<br/>the firm's SOP"]
+    CAS["cases.jsonl<br/>case, window, alert IDs, held payment"]
+    ALE["alerts.jsonl<br/>rule, message, measured, txn IDs"]
+    CUS["customers.jsonl<br/>declared income, countries, business"]
+    TXN["transactions.jsonl<br/>amount, counterparty, country, date"]
+    EVJ["evidence.jsonl + evidence/*.md<br/>invoices, statements, chats, registers,<br/>PSC tables, fraud reports, device exports"]
+    REV["previous_reviews.jsonl"]
+    LST["internal_list.jsonl"]
   end
-  IN --> E1
-  subgraph ENG [system/trail.py, standard library only]
-    E1[Parse fields, tables,<br/>amounts, dates] --> E2{Any suspicion<br/>or contradiction?}
-    E2 -- yes --> ESC[ESCALATE<br/>+ path]
-    E2 -- no --> E3{Every alert explained by<br/>a document that matches<br/>the money?}
-    E3 -- yes --> E4{List match settled:<br/>different party on<br/>the payment date?}
-    E4 -- yes --> CLO[CLOSE<br/>+ documents]
-    E4 -- no --> RFI[RFI<br/>+ what to ask]
-    E3 -- no --> RFI
-    ESC --> G[Guard: crypto legs<br/>never close]
-    CLO --> G
-    RFI --> G
-    G --> V[Validate: code fits verdict,<br/>every ID exists, 2-4 sentences]
-  end
-  V --> OUT[output/*.jsonl<br/>one line per case]
-  OUT --> WEB[Web desk<br/>queue · trail · policies]
+  POL -->|limits, higher-risk countries,<br/>5x own-account rule| PROF["Folder()<br/>policy profile"]
+  CAS --> CASE["Case()<br/>one case, all its records"]
+  ALE --> CASE
+  CUS --> CASE
+  TXN --> CASE
+  REV --> CASE
+  EVJ -->|bold fields, tables,<br/>£ amounts, dates| PARSE["fields() table_rows()<br/>amounts_in() parse_date()"]
+  PARSE --> CASE
+  LST --> LIST["resolve_list()<br/>officer and PSC dates<br/>at the payment date"]
+  PROF --> DEC
+  CASE --> DEC["decide()"]
+  LIST --> DEC
+  DEC --> FIN["finalise()<br/>valid IDs only, 2-4 sentences"]
+  FIN --> OUT["output/&lt;firm&gt;.jsonl<br/>one line per case"]
 ```
+
+### 2. How one case is decided
+
+```mermaid
+flowchart TD
+  S([Case]) --> SUS{"suspicion()<br/>fraud report? mule script? investing for others?<br/>structuring question? shared device? dissolved payer?<br/>conflicting stories? evasive director? pass-through?<br/>listed person in control on the payment date?"}
+  SUS -- any one --> E1[ESCALATE]
+  SUS -- none --> CON{"contradictions()<br/>receipt in someone else's name? goods never shipped?<br/>service invoice for a goods business?<br/>group chart disproved by the register?"}
+  CON -- any one --> E1
+  CON -- none --> EXP{"explain()<br/>does a document match the money<br/>to the penny, for every alert?"}
+  EXP -- "yes" --> L22{"TM22 in the case?"}
+  EXP -- "near miss or nothing on file" --> R1["RFI: ask for the one<br/>document that settles it"]
+  EXP -- "document contradicts the payments" --> E1
+  L22 -- no --> C1[CLOSE]
+  L22 -- "yes: different party proved" --> C1
+  L22 -- "yes: can't tell" --> R1
+  E1 --> G{"guard()<br/>crypto leg on a<br/>movement alert?"}
+  C1 --> G
+  R1 --> G
+  G -- "yes" --> E2[ESCALATE]
+  G -- "no" --> F["finalise(): one JSON line"]
+  E2 --> F
+```
+
+### 3. Two real cases from the run
+
+**Escalated: a listed person still controlled the payee.** Case `BK-CS125943`, bank.
+
+```mermaid
+flowchart LR
+  A["Alert BK-AL2932422<br/>TM22: payee's officer<br/>matches list entry"] --> T["BK-T758068985<br/>£1,800.00 out<br/>15 Sep 2026"]
+  T --> P["Elmcote Consulting Ltd<br/>(the payee)"]
+  P --> R["REG-6142<br/>Emery Draycote, director,<br/>resigned 14 Sep"]
+  P --> PSC["PSC-5155<br/>Emery Draycote owns 60%,<br/>ceased 17 Sep"]
+  L["List entry BK-L71137<br/>Emery Draycote<br/>'do not deal'"] --> PSC
+  PSC -->|"still in control on<br/>the payment day"| V["ESCALATE<br/>ESC_LISTED_PARTY"]
+  R -.->|"resigned as director,<br/>but control continued"| V
+```
+> Reason written by Trail: *Internal list match confirmed: Emery Draycote, the person on internal list entry BK-L71137, was a person with significant control (owns more than 50% but less than 75% of shares (60%)) of the counterparty when the £1,800.00 payment was made on 15 September 2026 (PSC-5155). Paying or receiving money from a party the list says not to deal with needs MLRO review.*
+
+**Closed: a car sale explains the cash.** Case `BK-CS100551`, bank.
+
+```mermaid
+flowchart LR
+  A1["Alert BK-AL4940447<br/>TM01: 5.9x declared income"] --> T["BK-T390363804<br/>£13,000.00 cash in<br/>11 Aug 2026"]
+  A2["Alert BK-AL8997856<br/>TM05: cash of £10,000+"] --> T
+  T --> S["SAL-9402<br/>vehicle sale receipt<br/>£13,000.00, seller = customer"]
+  I["INS-5321<br/>insurance on the same car,<br/>dated before the sale"] --> S
+  S -->|"amount matches to the penny,<br/>no later document contradicts it"| V["CLOSE<br/>DOCUMENTED_EVENT"]
+```
+> If the receipt had named another seller, or the insurance had started after the sale, the `contradictions()` step would have escalated it instead.
+
+### Design rules
 
 - **No model in the decision path.** Verdicts, codes, reasons and evidence all come from rules and templates. There is no API key, no network and no cost, and there is nothing for a document's text to inject into.
 - **Deterministic.** No clock, no randomness, sorted evidence, input order kept. Same bytes in, same bytes out.
