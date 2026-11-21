@@ -110,7 +110,7 @@ python tests/perturb_test.py "$D/bank"                       # expect: 0 changed
 python tests/counterfactual_test.py "$D/bank" output/bank.jsonl   # expect: still CLOSE: 0
 python viewer/build.py "$D" output                           # rebuilds viewer/data.js and web/public/data
 cd web && npm install && npm run dev                         # http://localhost:3000
-cd web && vercel deploy --prod --yes                         # redeploy; web/.vercelignore makes sure public/data is uploaded
+cd web && vercel deploy --prod --yes --archive=tgz           # redeploy (tgz: 4,000 data files exceed the per-file upload limit). Git auto-deploy is disconnected on purpose: GitHub has no case data
 ```
 **After any engine change:**
 1. Re-run all four and validate.
