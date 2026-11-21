@@ -52,15 +52,32 @@ def money(s):
 
 def amounts_in(text):
     """Every £ amount in a text, as floats."""
-    return [money(m) for m in re.findall(r"£\s?([\d,]+\.\d{2})", text)]
+    out = []
+    for a, b in re.findall(r"(?:£|GBP)\s?(\d[\d,]*(?:\.\d{2})?)|(\d[\d,]*\.\d{2})\s?GBP", text):
+        out.append(money(a or b))
+    return out
 
 
 def parse_date(s):
     """'5 June 2026' -> date. Returns None if it is not a full date."""
-    m = re.search(r"(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})", s or "")
-    if not m or m.group(2).lower() not in MONTHS:
+    s = s or ""
+    m = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", s)
+    if m:
+        try:
+            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            return None
+    m = re.search(r"(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})", s)
+    if not m:
         return None
-    return date(int(m.group(3)), MONTHS[m.group(2).lower()], int(m.group(1)))
+    mon = m.group(2).lower()
+    mon = mon if mon in MONTHS else next((k for k in MONTHS if k.startswith(mon[:3]) and len(mon) >= 3), None)
+    if not mon:
+        return None
+    try:
+        return date(int(m.group(3)), MONTHS[mon], int(m.group(1)))
+    except ValueError:
+        return None
 
 
 def iso(s):
@@ -203,7 +220,12 @@ class Case:
         return [d for d in self.docs_of("support_chat")]
 
     def chat_text(self):
-        return " ".join(d["text"] for d in self.chats()).lower()
+        """The customer's own lines in support chats (agent questions never count as the customer's story)."""
+        lines = []
+        for d in self.chats():
+            own = re.findall(r"\*\*Customer:\*\*([^\n]*)", d["text"])
+            lines.append(" ".join(own) if own else d["text"])
+        return " ".join(lines).lower()
 
     def summary(self):
         """One sentence on what the alerts measured, with amounts."""
@@ -299,7 +321,8 @@ def resolve_list(case, a):
                 role = "a person with significant control (%s)" % (role[0].lower() + role[1:])
             return "LISTED", "%s, the person on internal list entry %s, was %s of the counterparty when the %s payment was made on %s (%s)" % (
                 list_name, entry_id, role, gbp(pay["amount_gbp"]), pay["booked_at"][:10], active[0][3]), ev + [r[3] for r in active]
-        ended = max(r[2] for r in rows if r[2])
+        ends = [r[2] for r in rows if r[2]]
+        ended = max(ends) if ends else min(r[1] for r in rows if r[1]) if any(r[1] for r in rows) else pay_date
         # Proxy check (FCA May 2026 sanctions review: family members and associates used to obscure control).
         # If control passed to someone sharing the listed person's surname, the handover does not show a
         # different party: the payment can't be closed on it.
@@ -418,7 +441,8 @@ def suspicion(c):
                                     d["doc_id"], r[0], len(set(ids)), ", ".join(sorted(set(ids))), r[-1], c.summary(), first),
                                 c.ev([d["doc_id"]], c.alert_txn_ids))
 
-    dissolved = [d for d in c.docs_of("company_register_extract") if "dissolved" in d["text"].lower()]
+    dissolved = [d for d in c.docs_of("company_register_extract")
+                 if re.match(r"\s*dissolved", d["f"].get("status", "")) or (not d["f"].get("status") and re.search(r"\bstatus\b[^\n]*dissolved", d["text"], re.I))]
     if re.search(r"loan (provided by |i received from |given by )?(from )?a (friend|mate|pal)|from a (friend|mate)|friend (lent|loaned) me", chat) and (dissolved or c.has("TM02", "TM01")):
         payer = dissolved[0]["f"].get("company", "a company") if dissolved else "the payer"
         return Decision("ESC_UNEXPLAINED_FUNDS",
@@ -448,7 +472,7 @@ def suspicion(c):
                             first, c.alert_amounts_text(a), ", ".join(c.doc_ids(c.chats())), c.summary()),
                         c.ev(c.doc_ids(c.chats()), c.alert_txn_ids))
 
-    evasive = [d for d in c.docs_of("staff_note") if re.search(r"unable|unwilling|evasive|could not|would not|couldn't|wouldn't|declined|refused|reluctant|vague|however", d["text"], re.I)]
+    evasive = [d for d in c.docs_of("staff_note") if re.search(r"unable|unwilling|evasive|could not|would not|couldn't|wouldn't|declined|refused|reluctant|vague|no clear answer|changed the subject|inconsistent|contradict|did not know|didn't know", d["text"], re.I)]
     if evasive:
         code = "ESC_HIGH_RISK_CORRIDOR" if c.has("TM06") else "ESC_INVOICE_MISMATCH"
         inv = c.docs_of("supplier_invoices", "supplier_invoice", "invoice")
@@ -553,7 +577,7 @@ def explain(c):
     if recs and not D("staff_note"):
         hits = [t for d in recs for t in c.matching_txns(d)]
         support = D("cash_handling_procedure", "ticket_report")
-        if hits or D("management_accounts"):
+        if hits:
             return close("BUSINESS_RECORDS_RECONCILE",
                          "Business records %s reconcile to the cash paid in: %s. %s" % (
                              ", ".join(c.doc_ids(recs)), "the deposits of " + ", ".join(gbp(t["amount_gbp"]) for t in hits[:4]) + " appear in the records" if hits else s,
@@ -748,6 +772,11 @@ def explain(c):
                             "Ask %s for an updated expected monthly income or volume for the account." % (
                                 ", ".join(c.doc_ids(stm)), first, mult, c.F.own_account_rfi_multiple, first),
                             c.ev(c.doc_ids(stm), [t["transaction_id"] for t in hits] or c.alert_txn_ids))
+        if not hits:
+            return Decision("RFI_SOURCE_OF_FUNDS",
+                            "Statements %s are in %s's name, but none of their transfers match the money behind the alerts (%s). "
+                            "Ask %s for the statement showing the transfers that funded the account." % (", ".join(c.doc_ids(stm)), first, s, first),
+                            c.ev(c.doc_ids(stm), c.alert_txn_ids))
         return close("OWN_ACCOUNT",
                      "Statements %s in %s's own name show the money moved between the customer's own accounts (%s). "
                      "This explains %s%s." % (
@@ -758,6 +787,19 @@ def explain(c):
 
 
 # ---------------------------------------------------------------- fallback: no explanation, no suspicion -> RFI
+
+def fallback_rules(c, rules):
+    """Fallback for the rules still open once a list match is ruled out."""
+    keep = c.rules
+    c.rules = sorted(rules)
+    c.alerts_all = c.alerts
+    c.alerts = [a for a in c.alerts if a["rule_id"] in rules]
+    try:
+        return fallback(c)
+    finally:
+        c.rules = keep
+        c.alerts = c.alerts_all
+
 
 def fallback(c):
     first = c.name
@@ -837,7 +879,9 @@ def contradictions(c):
     # A sale receipt must be for a sale by the customer, and later documents must not show they still own the item.
     if c.cust.get("kind") != "business":
         for d in c.docs_of("vehicle_sale_receipt", "sale_receipt"):
-            m = re.search(r"\*\*Seller:\*\*\s*([^,\n]+)", d["text"]) or re.search(r"\bI,\s*([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)+),", d["text"])
+            m = (re.search(r"\*\*Seller:\*\*\s*([^,\n]+)", d["text"])
+                 or re.search(r"\bI,\s*([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)+),", d["text"])
+                 or re.search(r"\bsold by\s+([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)+)", d["text"]))
             if m and norm(first) and norm(first) not in norm(m.group(1)) and norm(m.group(1)) not in norm(first):
                 return Decision("ESC_UNEXPLAINED_FUNDS",
                                 "Sale receipt %s records a sale by %s, not by %s, so it does not explain the money. "
@@ -855,7 +899,7 @@ def contradictions(c):
                                     c.ev([d["doc_id"], ins["doc_id"]], c.alert_txn_ids))
     # A document saying the goods never moved.
     for d in c.docs:
-        if re.search(r"never (been )?shipped|were not shipped|was not shipped|not (been )?loaded|no (such )?shipment|never left|did not (sail|ship|leave)|no record of (the |this )?(shipment|consignment|containers?)", d["text"], re.I):
+        if re.search(r"never (been )?shipped|were not shipped|was not shipped|not (been )?loaded|cancelled before loading|no (goods|containers?|cargo) (were )?shipped|no (such )?shipment|never left|did not (sail|ship|leave)|no record of (the |this )?(shipment|consignment|containers?)", d["text"], re.I):
             inv = c.docs_of("supplier_invoice", "supplier_invoices", "invoice")
             return Decision("ESC_INVOICE_MISMATCH",
                             "%s (%s) says the goods were never shipped, yet the payments behind the alerts (%s) are being paid on for them%s. "
@@ -894,11 +938,35 @@ def contradictions(c):
     return None
 
 
+CRYPTO_RX = re.compile(r"\b(coin\w*|crypto\w*|bitcoin|btc|usdt|tether|stablecoin)\b", re.I)
+
+
+def guard(c, d):
+    """Never CLOSE or RFI when money on a movement alert goes to or comes from a crypto counterparty."""
+    if d.verdict == "ESCALATE" or not c.has("TM02", "TM04", "TM08"):
+        return d
+    cr = [t for t in c.alert_txns + c.window_txns if CRYPTO_RX.search(t.get("counterparty_name") or "")]
+    if not cr:
+        return d
+    code = "ESC_THIRD_PARTY_FUNDING" if c.has("TM08") else "ESC_MULE_ACTIVITY"
+    return Decision(code,
+                    "Money behind the alerts moved to or from a crypto counterparty (%s, %s on %s). "
+                    "With %s and no document explaining the crypto leg, the account appears to move money on for others." % (
+                        cr[0]["counterparty_name"], gbp(cr[0]["amount_gbp"]), cr[0]["booked_at"][:10], c.summary()),
+                    c.ev([t["transaction_id"] for t in cr], d.evidence))
+
+
 def decide(c):
+    return guard(c, decide_inner(c))
+
+
+def decide_inner(c):
     d = suspicion(c) or contradictions(c)
     if d:
         return d
     d = explain(c)
+    if d and d.verdict == "ESCALATE":
+        return d
     # TM22 must be settled separately: a CLOSE on other grounds still needs the list match ruled out.
     if c.has("TM22"):
         for a in c.alerts:
@@ -913,6 +981,9 @@ def decide(c):
                 inv = [x for x in c.docs if x["type"] in ("invoice", "receipt", "gift_letter") and c.matching_txns(x)]
                 if d and d.verdict != "CLOSE":
                     return d
+                others = [r for r in c.rules if r != "TM22"]
+                if d is None and others and not inv:
+                    return fallback_rules(c, others)
                 return Decision("LIST_MATCH_DIFFERENT_PARTY",
                                 "The list match is a different party: %s. %s" % (
                                     facts, "%s matches the amount and counterparty of the payment, so it has an ordinary documented purpose." % ", ".join(c.doc_ids(inv)) if inv
@@ -928,6 +999,8 @@ def decide(c):
 def finalise(c, d):
     valid = set(c.doc_ids(c.docs)) | set(c.F.txns) | set(c.F.list_entries) | set(c.F.alerts)
     ev = [x for x in d.evidence if x in valid]
+    if d.verdict == "CLOSE" and c.alert_txn_ids and not any(x in c.alert_txn_ids for x in ev):
+        ev = ev + c.alert_txn_ids[:2]
     if not ev:
         ev = c.alert_txn_ids[:6]
     reason = re.sub(r"\s+", " ", d.reason).strip()
