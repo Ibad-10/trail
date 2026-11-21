@@ -300,6 +300,16 @@ def resolve_list(case, a):
             return "LISTED", "%s, the person on internal list entry %s, was %s of the counterparty when the %s payment was made on %s (%s)" % (
                 list_name, entry_id, role, gbp(pay["amount_gbp"]), pay["booked_at"][:10], active[0][3]), ev + [r[3] for r in active]
         ended = max(r[2] for r in rows if r[2])
+        # Proxy check (FCA May 2026 sanctions review: family members and associates used to obscure control).
+        # If control passed to someone sharing the listed person's surname, the handover does not show a
+        # different party: the payment can't be closed on it.
+        surname = norm(list_name).split()[-1] if norm(list_name) else ""
+        heirs = sorted(set(r2[0] for d in case.docs_of("company_register_extract", "significant_control_register")
+                           for r2 in table_rows(d["text"]) if r2 and surname and norm(r2[0]).split()[-1:] == [surname]
+                           and norm(r2[0]) != norm(list_name)))
+        if heirs:
+            return "UNKNOWN", "Control of the counterparty passed from %s (internal list entry %s) to %s, who shares the same surname, shortly before the %s payment on %s; a handover to a possible relative does not show a different party" % (
+                list_name, entry_id, ", ".join(heirs), gbp(pay["amount_gbp"]), pay["booked_at"][:10]), ev + [r[3] for r in rows]
         return "DIFFERENT", "%s, the person on internal list entry %s, had left the counterparty by %s, before the %s payment on %s (%s)" % (
             list_name, entry_id, ended.strftime("%d %B %Y").lstrip("0"), gbp(pay["amount_gbp"]), pay["booked_at"][:10],
             ", ".join(sorted(set(r[3] for r in rows)))), ev + [r[3] for r in rows]
