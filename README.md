@@ -7,10 +7,13 @@ A deterministic triage engine for transaction-monitoring alerts. It follows each
   <a href="https://trail-rose-one.vercel.app">Live desk</a> ·
   <a href="system/README.md">How the engine decides</a> ·
   <a href="#run-it">Run it</a> ·
-  <a href="#accuracy">Accuracy</a>
+  <a href="#accuracy">Accuracy</a> ·
+  <a href="docs/media/trail-demo.mp4">Demo video</a>
 </p>
 
 Built solo in one day at the **Grok Bot London Financial Crime Hackathon**, Saturday 21 November 2026. Track 1, "Stop suspicious payments: build a system that closes alerts safely", designed by Diligent.
+
+<p align="center"><a href="docs/media/trail-demo.mp4"><img src="docs/media/trail-demo-preview.gif" width="720" alt="Trail demo preview"></a><br/><a href="docs/media/trail-demo.mp4">Watch the full demo with sound</a> · <a href="https://github.com/Ibad-10/trail/raw/main/docs/media/trail-demo.mp4">Download mp4</a></p>
 
 <p align="center">
   <img src="docs/images/landing.png" width="32%" alt="Trail landing page: close what the evidence explains, escalate the rest with the path" />
