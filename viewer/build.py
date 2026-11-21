@@ -103,3 +103,30 @@ with open(os.path.join(here, "data.js"), "w", encoding="utf-8") as f:
     json.dump(cases, f, ensure_ascii=False, separators=(",", ":"))
     f.write(";\n")
 print("wrote %d cases to viewer/data.js" % len(cases))
+
+# ---- also write per-case JSON for the web app (web/public/data, git-ignored)
+web = os.path.join(here, "..", "web", "public", "data")
+os.makedirs(os.path.join(web, "case"), exist_ok=True)
+summary = []
+for c in cases:
+    summary.append({k: c[k] for k in ("inst", "case_id", "customer", "kind", "rules", "verdict", "code", "held")}
+                   | {"reason": c["reason"][:220]})
+    with open(os.path.join(web, "case", c["case_id"] + ".json"), "w", encoding="utf-8") as f:
+        json.dump(c, f, ensure_ascii=False, separators=(",", ":"))
+with open(os.path.join(web, "cases.json"), "w", encoding="utf-8") as f:
+    json.dump(summary, f, ensure_ascii=False, separators=(",", ":"))
+pol = {}
+for inst in ("bank", "emoney", "investment", "payments_fx"):
+    F = Folder(os.path.join(root, inst))
+    rules = []
+    for line in F.policy.splitlines():
+        m = re.match(r"\|\s*(TM\d+)\s*\|\s*([^|]+)\|\s*([^|]+)\|", line)
+        if m:
+            rules.append({"id": m.group(1), "name": m.group(2).strip(), "fires": m.group(3).strip()})
+    title = F.policy.splitlines()[0].lstrip("# ").strip() if F.policy else inst
+    intro = next((l for l in F.policy.splitlines()[1:] if l.strip() and not l.startswith("#")), "")
+    pol[inst] = {"title": title, "intro": intro, "rules": rules, "high_risk": F.high_risk,
+                 "own_account_multiple": F.own_account_rfi_multiple, "policy": F.policy}
+with open(os.path.join(web, "policies.json"), "w", encoding="utf-8") as f:
+    json.dump(pol, f, ensure_ascii=False, separators=(",", ":"))
+print("wrote web/public/data (%d case files)" % len(cases))

@@ -8,3 +8,4 @@ __pycache__/
 CLAUDE.md
 labels/
 viewer/data.js
+web/public/data/
