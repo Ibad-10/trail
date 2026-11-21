@@ -64,7 +64,7 @@ The policy profile (higher-risk countries, own-account multiple) is parsed from 
 | Check | Command | Result |
 |---|---|---|
 | Valid output | `python system/validate.py <folder> <out>` | 0 errors in all 4 institutions |
-| Same answer every run | `system/repro.sh <folder>` | 5 of 5 identical SHA-256 per institution (bank `79570905…`, emoney `a31e6f4d…`, investment `e835ebcf…`, payments_fx `cc216014…`) |
+| Same answer every run | `system/repro.sh <folder>` | 5 of 5 identical SHA-256 per institution (bank `234fe586…`, emoney `14d3aaf6…`, investment `e835ebcf…`, payments_fx `cc216014…`) |
 | No memorising | `python tests/perturb_test.py <folder>` | Renumber every ID and shuffle every record file: **0 of 4,000** verdicts or codes change |
 | CLOSE rests on its evidence | `python tests/counterfactual_test.py <folder> <out>` | Delete each CLOSE's cited documents: **2,000 of 2,000** stop being CLOSE |
 | Verdict mix | | Each institution: 500 CLOSE, 250 RFI, 250 ESCALATE |
