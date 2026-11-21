@@ -684,6 +684,12 @@ def explain(c):
                          [em[0]["doc_id"]], c.doc_ids(D("bank_statement")), [t["transaction_id"] for t in hits])
 
     letter = [d for d in D("customer_letter") if re.search(r"relocat|moved to", d["text"], re.I)]
+    if letter and c.has("TM06") and not D("bank_statement"):
+        return Decision("RFI_COUNTERPARTY_DETAILS",
+                        "Letter %s from %s says the account abroad is their own, but no statement on file shows they hold it. "
+                        "Ask %s for a statement of that account in their name before treating the higher-risk-country withdrawals (%s) as their own." % (
+                            letter[0]["doc_id"], first, first, c.alert_amounts_text(c.alert("TM06"))),
+                        c.ev([letter[0]["doc_id"]], c.alert_txn_ids))
     if letter and c.has("TM06"):
         return close("WITHIN_PROFILE",
                      "Letter %s from %s says they moved abroad for a new job and asks for withdrawals to go to their own account there. "
@@ -702,7 +708,13 @@ def explain(c):
 
     rvf = D("reverification_record")
     if rvf and c.has("TM07"):
-        stm = D("bank_statement")
+        stm = [d for d in D("bank_statement") if c.matching_txns(d, "in")
+               or norm(first) in norm(d["f"].get("account holder", "") + " " + d["f"].get("account holders", ""))]
+        if not stm and c.has("TM01"):
+            return Decision("RFI_SOURCE_OF_FUNDS",
+                            "Re-verification record %s confirms %s's identity after the dormant period, but nothing on file shows where the money paid in came from (%s). "
+                            "Ask %s for a statement of the sending account in their name, or other proof of the source of the funds." % (rvf[0]["doc_id"], first, s, first),
+                            c.ev([rvf[0]["doc_id"]], c.alert_txn_ids))
         return close("RETURNING_CUSTOMER",
                      "Re-verification record %s confirms %s's identity on their usual device after the dormant period%s. "
                      "The reactivation (%s) is a verified customer resuming use of the account." % (
@@ -818,8 +830,72 @@ def fallback(c):
                     c.ev(c.alert_txn_ids))
 
 
+def contradictions(c):
+    """Documents that contradict the explanation on file. Any one means the evidence does not explain the activity."""
+    first = c.name
+    s = c.summary()
+    # A sale receipt must be for a sale by the customer, and later documents must not show they still own the item.
+    if c.cust.get("kind") != "business":
+        for d in c.docs_of("vehicle_sale_receipt", "sale_receipt"):
+            m = re.search(r"\*\*Seller:\*\*\s*([^,\n]+)", d["text"]) or re.search(r"\bI,\s*([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)+),", d["text"])
+            if m and norm(first) and norm(first) not in norm(m.group(1)) and norm(m.group(1)) not in norm(first):
+                return Decision("ESC_UNEXPLAINED_FUNDS",
+                                "Sale receipt %s records a sale by %s, not by %s, so it does not explain the money. "
+                                "With %s, the funds have no credible explanation." % (d["doc_id"], m.group(1).strip(), first, s),
+                                c.ev([d["doc_id"]], c.alert_txn_ids))
+            sold = parse_date(d["f"].get("dated", ""))
+            reg = re.search(r"registration\s+([A-Z]{2}\d{2}\s?[A-Z]{3})", d["text"])
+            for ins in c.docs_of("insurance_schedule"):
+                start = parse_date(ins["f"].get("dated", ""))
+                if reg and sold and start and start > sold and reg.group(1).replace(" ", "") in ins["text"].replace(" ", ""):
+                    return Decision("ESC_UNEXPLAINED_FUNDS",
+                                    "Sale receipt %s says vehicle %s was sold on %s, but insurance schedule %s shows %s insuring the same vehicle afterwards. "
+                                    "The documents contradict each other, so %s is unexplained." % (
+                                        d["doc_id"], reg.group(1), d["f"].get("dated"), ins["doc_id"], first, s),
+                                    c.ev([d["doc_id"], ins["doc_id"]], c.alert_txn_ids))
+    # A document saying the goods never moved.
+    for d in c.docs:
+        if re.search(r"never (been )?shipped|were not shipped|was not shipped|not (been )?loaded|no (such )?shipment|never left|did not (sail|ship|leave)|no record of (the |this )?(shipment|consignment|containers?)", d["text"], re.I):
+            inv = c.docs_of("supplier_invoice", "supplier_invoices", "invoice")
+            return Decision("ESC_INVOICE_MISMATCH",
+                            "%s (%s) says the goods were never shipped, yet the payments behind the alerts (%s) are being paid on for them%s. "
+                            "The invoices do not support the payments." % (
+                                d["doc_id"], d["type"].replace("_", " "), s, " under %s" % ", ".join(c.doc_ids(inv)) if inv else ""),
+                            c.ev([d["doc_id"]], c.doc_ids(inv), c.alert_txn_ids))
+    # Service invoices that don't fit a goods business, on higher-risk or third-party flows.
+    act = (c.cust.get("business_activity") or "").lower()
+    if c.cust.get("kind") == "business" and re.search(r"import|sell|suppl|manufactur|wholesal|distribut|retail", act) and c.has("TM06", "TM08", "TM02"):
+        for d in c.docs_of("supplier_invoice", "supplier_invoices", "invoice"):
+            if re.search(r"advisory|consultanc|market (entry|access)|facilitation|introduc", d["text"], re.I) and not re.search(r"advis|consult", act):
+                return Decision("ESC_INVOICE_MISMATCH",
+                                "Invoice %s bills %s, whose business is described as %s, for vague advisory or market-access services rather than goods. "
+                                "With %s, the invoices do not support the payments." % (d["doc_id"], first, c.cust.get("business_activity"), s),
+                                c.ev([d["doc_id"]], c.alert_txn_ids))
+    # A group chart contradicted by the payer's own register.
+    a8 = c.alert("TM08")
+    for g in c.docs_of("group_structure"):
+        if not a8:
+            break
+        for t in a8.get("transaction_ids", []):
+            payer = c.F.txns.get(t, {}).get("counterparty_name") or ""
+            regs = [d for d in c.docs_of("company_register_extract")
+                    if norm(payer) and norm(payer) in norm(d["text"].splitlines()[0] + " " + d["f"].get("company", ""))]
+            if not regs:
+                continue
+            people = set(norm(r[0]) for d in regs for r in table_rows(d["text"])
+                         if r and r[0] and not r[0].lower().startswith(("officer", "person")))
+            owners = [norm(r[1]) for r in table_rows(g["text"]) if len(r) > 1 and norm(r[0]) == norm(payer)]
+            if people and owners and not any(o in people for o in owners):
+                return Decision("ESC_THIRD_PARTY_FUNDING",
+                                "Group chart %s says %s is in the client's group, but register %s shows it is owned and run by other people. "
+                                "The %s it paid in is funding from an unrelated third party." % (
+                                    g["doc_id"], payer, regs[0]["doc_id"], gbp(c.F.txns[t]["amount_gbp"])),
+                                c.ev([g["doc_id"], regs[0]["doc_id"]], [t]))
+    return None
+
+
 def decide(c):
-    d = suspicion(c)
+    d = suspicion(c) or contradictions(c)
     if d:
         return d
     d = explain(c)
