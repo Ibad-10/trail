@@ -482,7 +482,7 @@ def suspicion(c):
     pay_files = [d for d in c.docs_of("payment_file") if "commission" in d["text"].lower()]
     if pay_files and a8:
         payers = sorted(set(c.F.txns[t]["counterparty_name"] for t in a8.get("transaction_ids", []) if t in c.F.txns))
-        return Decision("ESC_THIRD_PARTY_FUNDING",
+        return Decision("ESC_PASS_THROUGH",
                         "%s paid in by %s, and the money went out to many individuals under commission file %s, whose payee countries do not match their UK addresses. "
                         "Unrelated third parties fund the account and receive money from it." % (
                             gbp(sum(c.F.txns[t]["amount_gbp"] for t in a8.get("transaction_ids", []) if t in c.F.txns)), ", ".join(payers), pay_files[0]["doc_id"]),
@@ -531,7 +531,7 @@ def explain(c):
     if loan and dealer:
         li, di = c.matching_txns(loan[0], "in"), c.matching_txns(dealer[0], "out")
         if li and di:
-            return close("DOCUMENTED_EVENT",
+            return close("INVOICE_MATCHES",
                          "Loan agreement %s explains the %s received on %s, and dealer invoice %s matches the %s paid out on %s for a car. "
                          "The money came in from a lender and went straight to the car dealer, which explains %s." % (
                              loan[0]["doc_id"], gbp(li[0]["amount_gbp"]), li[0]["booked_at"][:10], dealer[0]["doc_id"],
@@ -693,9 +693,11 @@ def explain(c):
 
     emp = D("employment_contract")
     if emp and c.has("TM06", "TM01"):
-        return close("WITHIN_PROFILE",
-                     "Employment contract %s shows %s works abroad for the employer paying in. "
-                     "The salary payments behind the alerts (%s) fit this documented employment." % (emp[0]["doc_id"], first, s),
+        own_stm = [d for d in D("bank_statement") if norm(first) and norm(first) in norm(d["f"].get("account holder", "") + " " + d["f"].get("account holders", ""))]
+        return close("OWN_ACCOUNT" if own_stm else "WITHIN_PROFILE",
+                     "Employment contract %s shows %s works abroad for the employer paying in%s. "
+                     "The payments behind the alerts (%s) fit this documented employment." % (
+                         emp[0]["doc_id"], first, ", and statement %s shows the money came from the customer's own account there" % own_stm[0]["doc_id"] if own_stm else "", s),
                      [emp[0]["doc_id"]], c.doc_ids(D("bank_statement")), c.alert_txn_ids)
 
     rvf = D("reverification_record")
@@ -715,7 +717,7 @@ def explain(c):
             w = [x for x in c.txns if x["direction"] == "out" and "cash" in x["channel"] and same_amount(x["amount_gbp"], t["amount_gbp"])
                  and x["booked_at"] < t["booked_at"]]
             if w:
-                return close("WITHIN_PROFILE",
+                return close("REFUND_OF_EARLIER_PAYMENT",
                              "Chat %s explains the %s cash deposit on %s as cash withdrawn earlier and returned after a private car purchase fell through. "
                              "The account history shows the same %s withdrawn in cash on %s, so the deposit is the customer's own money coming back." % (
                                  ", ".join(c.doc_ids(c.chats())), gbp(t["amount_gbp"]), t["booked_at"][:10], gbp(w[0]["amount_gbp"]), w[0]["booked_at"][:10]),
@@ -761,6 +763,12 @@ def fallback(c):
     a = c.alert(rule) or (c.alerts[0] if c.alerts else {})
     if rule == "TM08":
         payers = sorted(set(c.F.txns[t]["counterparty_name"] for t in a.get("transaction_ids", []) if t in c.F.txns))
+        if payers and all(re.search(r"invoice finance|factoring|finance ltd", p, re.I) for p in payers):
+            return Decision("RFI_PURPOSE_DOCUMENTS",
+                            "%s received %s from %s, which looks like an invoice-finance advance, but no facility agreement or remittance advice is on file. "
+                            "Ask %s for the invoice-finance agreement and the remittance advice listing the invoices financed." % (
+                                first, c.alert_amounts_text(a), ", ".join(payers), first),
+                            c.ev(c.alert_txn_ids))
         return Decision("RFI_COUNTERPARTY_DETAILS",
                         "Money moved to or from %s, an account not in %s's name (%s), and nothing on file explains the relationship. "
                         "Ask %s who the account holder is, how they are related, and for proof of the relationship or that the account is the customer's own." % (
@@ -782,6 +790,11 @@ def fallback(c):
                         "%s: %s. Nothing on file explains the repeated amounts just under the limit, and nothing else is concerning. "
                         "Ask %s for %s." % (first, s, first,
                                             "the invoice or contract covering these payments" if code == "RFI_PURPOSE_DOCUMENTS" else "the business records (takings or collection reports) behind the cash"),
+                        c.ev(c.alert_txn_ids))
+    if rule == "TM04" and biz and all(t["direction"] == "out" for t in c.alert_txns):
+        return Decision("RFI_BUSINESS_RECORDS",
+                        "The alerts show %s, and no payment file or contracts on file show who the payees are. Nothing points to crime yet. "
+                        "Ask %s for the payroll or contractor payment file and contracts behind these payments." % (s, first),
                         c.ev(c.alert_txn_ids))
     if rule in ("TM04", "TM02"):
         return Decision("RFI_PURPOSE_DOCUMENTS",

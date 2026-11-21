@@ -51,6 +51,7 @@ D="/d/Projects/Grok Bot finical hackathon/data/track1/x/hackathon/institutions"
 | Each CLOSE rests on its evidence | ✅ | `tests/counterfactual_test.py`: 2,000 of 2,000 CLOSEs stop being CLOSE without their cited documents |
 | Runs as the organisers will (from inside `system/`, full paths, 200 cases) | ✅ | 4 s, 200 lines, data folder untouched |
 | Verdict mix | ✅ | 500 CLOSE / 250 RFI / 250 ESCALATE in every institution (suggests a designed 50/25/25 split; not proof of per-case accuracy) |
+| Blind gold sample (60 cases, independent labeller) | ✅ | 60/60 verdicts, 0 wrongful closes, 31/31 closable closed, codes 58/60 (`labels/blind_gold.csv`, git-ignored) |
 | Wording robustness | 🟡 | Broader phrase patterns for mule, structuring, third-party, loan and family stories; dev output byte-identical. A paraphrase test suite is still to do (6.2) |
 | `system/README.md`, repo README, docs | ✅ | |
 | Web app (Next.js 16, shadcn base-nova, Magic UI, motion): landing, overview, queue, case trail, policies, assurance; Ctrl+K search; dark mode; phone layout | ✅ | Deployed; checked at desktop and phone widths |

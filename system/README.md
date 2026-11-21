@@ -64,10 +64,11 @@ The policy profile (higher-risk countries, own-account multiple) is parsed from 
 | Check | Command | Result |
 |---|---|---|
 | Valid output | `python system/validate.py <folder> <out>` | 0 errors in all 4 institutions |
-| Same answer every run | `system/repro.sh <folder>` | 5 of 5 identical SHA-256 per institution (bank `234fe586…`, emoney `14d3aaf6…`, investment `e835ebcf…`, payments_fx `cc216014…`) |
+| Same answer every run | `system/repro.sh <folder>` | 5 of 5 identical SHA-256 per institution (bank `dedad27c…`, emoney `14d3aaf6…`, investment `36179391…`, payments_fx `1a2f0f40…`) |
 | No memorising | `python tests/perturb_test.py <folder>` | Renumber every ID and shuffle every record file: **0 of 4,000** verdicts or codes change |
 | CLOSE rests on its evidence | `python tests/counterfactual_test.py <folder> <out>` | Delete each CLOSE's cited documents: **2,000 of 2,000** stop being CLOSE |
 | Verdict mix | | Each institution: 500 CLOSE, 250 RFI, 250 ESCALATE |
+| **Blind gold sample** | `python tests/score.py <labels> output/*.jsonl` | An independent labeller (a fresh session that never saw this code) labelled 60 cases, 15 per institution, from the brief and POLICY.md only. **60/60 verdicts agree, 0 wrongful closes, 31/31 closable cases closed** (no extra work for analysts), cost per case 0.00 vs 2.12 for escalating everything. Reason codes agree on 58/60 |
 | Time and cost | | About 20–26 s per 1,000 cases on a Windows laptop, so a run of 200 cases takes well under a minute. **$0**: no model, no network |
 
 The development cases have no answers, so we can't report accuracy. The identical 50/25/25 split in all four institutions appeared once the rules followed the policies. It suggests the dataset was built that way, but it isn't proof that each case is right.
