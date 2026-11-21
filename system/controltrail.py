@@ -367,9 +367,10 @@ def suspicion(c):
         amts = [a for d in rpts for a in amounts_in(d["text"])[:1]]
         hits = [t["transaction_id"] for d in rpts for t in c.matching_txns(d, "in")]
         return Decision("ESC_MULE_ACTIVITY",
-                        "%d other bank(s) report that their customers paid %s's account as victims of authorised push payment scams (%s, %s in total). "
+                        "%s report that their customers paid %s's account as victims of authorised push payment scams (%s, %s in total). "
                         "The alerts show %s, so the account is receiving and passing on scam money." % (
-                            len(rpts), first, ", ".join(c.doc_ids(rpts)), gbp(sum(amts)), c.summary()),
+                            ("One other bank" if len(rpts) == 1 else "%s other banks" % {2: "Two", 3: "Three", 4: "Four"}.get(len(rpts), str(len(rpts)))),
+                            first, ", ".join(c.doc_ids(rpts)), gbp(sum(amts)), c.summary()),
                         c.ev(c.doc_ids(rpts), c.doc_ids(c.chats()), hits or c.alert_txn_ids))
 
     if re.search(r"send it on|keep \d+% as my wages|crypto account|payments assistant", chat):
