@@ -118,21 +118,25 @@ cd web && vercel deploy --prod --yes                         # redeploy; web/.ve
 
 ## 6. Next steps, in priority order
 1. **Final run and push before 16:30** (section 5). Then stop touching `system/`.
-2. **Paraphrase test** (`tests/paraphrase_test.py`). Rewrite chat and staff-note sentences with synonyms, for example "send it on" → "forward the money", and check the same signals fire. This is the main risk on unseen cases, which may word free text differently.
-3. **Optional LLM fallback (cascade)**, only for free text that no pattern matched:
+2. **Gold sample (the only accuracy measure available)**. The dev data has no answers, and public AML datasets (SAML-D, IBM, PaySim) label transactions, not alert outcomes, so they can't score this engine.
+   - `python tests/make_label_sheet.py "$D"` writes `labels/to_label.csv`: 237 cases, 2 per group of similar cases. The file is git-ignored.
+   - A person (not the engine's author) labels `verdict` from the case page and `POLICY.md`.
+   - Then run `python tests/score.py labels/to_label.csv output/*.jsonl`. It prints the cost per case, wrongful closes and the share of closable cases closed, using the official cost table.
+3. **Paraphrase test** (`tests/paraphrase_test.py`). Rewrite chat and staff-note sentences with synonyms, for example "send it on" → "forward the money", and check the same signals fire. This is the main risk on unseen cases, which may word free text differently.
+4. **Optional LLM fallback (cascade)**, only for free text that no pattern matched:
    - Call OpenRouter at temperature 0 with a JSON enum reply (`MULE_SCRIPT`, `STRUCTURING_QUESTION`, `CONTRADICTION`, `EVASIVE`, `BENIGN`, `NOISE`).
    - Cache by SHA-256 of the prompt in `system/cache/`.
    - If there's no key or the call fails, behave exactly as today.
    - It may only push a case towards RFI or ESCALATE, never towards CLOSE.
    - Source idea: Fed FEDS 2025-092 cascade.
-   - Risky this close to the deadline. Only do it if 6.2 shows real misses.
-4. **Audit trace**: write `system/trace/<case>.json` (allowed, since it's inside `system/`) with the rule path, matched spans and evidence. It helps the "replay any decision" pitch. Keep it deterministic.
-5. **Reason polish**:
+   - Risky this close to the deadline. Only do it if 6.3 shows real misses.
+5. **Audit trace**: write `system/trace/<case>.json` (allowed, since it's inside `system/`) with the rule path, matched spans and evidence. It helps the "replay any decision" pitch. Keep it deterministic.
+6. **Reason polish**:
    - Lead with the deciding document.
    - Keep 2–4 sentences.
    - Use UK date style ("15 September 2026") instead of ISO in reasons. Check the validator still passes.
-6. **Independent review** of `system/trail.py` against `docs/SUBMISSION.md` (use a fresh reviewer, e.g. `/code-review`).
-7. Web extras from `docs/FEATURES.md`:
+7. **Independent review** of `system/trail.py` against `docs/SUBMISSION.md` (use a fresh reviewer, e.g. `/code-review`).
+8. Web extras from `docs/FEATURES.md`:
    - money-flow Sankey (3.6)
    - relationship map (3.5)
    - "Why not CLOSE?" (7.1)
