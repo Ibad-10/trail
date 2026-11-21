@@ -46,7 +46,7 @@ export default function CasePage() {
         <Link href="/queue" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />Back to queue</Link>
       </div>
 
-      <Card className={`border-l-4`} style={{ borderLeftColor: VERDICT[c.verdict].dot }}>
+      <Card className={c.verdict === "CLOSE" ? "bg-close-bg/40" : c.verdict === "RFI" ? "bg-rfi-bg/40" : "bg-esc-bg/40"}>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
             <VerdictBadge v={c.verdict} long />
