@@ -52,11 +52,13 @@ D="/d/Projects/Grok Bot finical hackathon/data/track1/x/hackathon/institutions"
 | Runs as the organisers will (from inside `system/`, full paths, 200 cases) | ✅ | 4 s, 200 lines, data folder untouched |
 | Verdict mix | ✅ | 500 CLOSE / 250 RFI / 250 ESCALATE in every institution (suggests a designed 50/25/25 split; not proof of per-case accuracy) |
 | Blind gold sample (60 cases, independent labeller) | ✅ | 60/60 verdicts, 0 wrongful closes, 31/31 closable closed, codes 58/60 (`labels/blind_gold.csv`, git-ignored) |
+| Adversarial test set (120 independent cases, `D:\Projects\Grok Bot finical hackathon\data\synthetic\`) | ✅ | 0 wrongful closes (was 8), 90/120 verdicts, cost 0.74 vs 1.73 escalate-all |
+| Review fixes from Grok (TM22 ordering, amount-match on CLOSE paths, customer-only chat lines, amount/date parsing, crypto guard, evidence cites alerted txn) | ✅ | Dev verdicts and codes unchanged |
 | Wording robustness | 🟡 | Broader phrase patterns for mule, structuring, third-party, loan and family stories; dev output byte-identical. A paraphrase test suite is still to do (6.2) |
 | `system/README.md`, repo README, docs | ✅ | |
 | Web app (Next.js 16, shadcn base-nova, Magic UI, motion): landing, overview, queue, case trail, policies, assurance; Ctrl+K search; dark mode; phone layout | ✅ | Deployed; checked at desktop and phone widths |
 | Single-file viewer `viewer/index.html` | ✅ | `python viewer/build.py "$D" output`, then serve `viewer/` |
-| Public GitHub repo | ✅ | https://github.com/Ibad-10/trail |
+| Public GitHub repo | ✅ | https://github.com/Ibad-10/trail (README rewritten; `docs/TRAIL_RESEARCH.md` and `labels/` git-ignored) |
 | Vercel deploy | ✅ | https://trail-rose-one.vercel.app |
 | 2-minute video | ⬜ | Ibad records with Clockbot (script in section 7) |
 | Submission form | ⬜ | Ibad fills it in (section 8) |
@@ -177,3 +179,13 @@ cd web && vercel deploy --prod --yes                         # redeploy; web/.ve
 - Keep `system/` dependency-free and deterministic. Run section 5's checks after any change.
 - The web app needs `web/public/data` (built by `viewer/build.py`) before `npm run dev` shows anything.
 - Next.js 16 note: read `web/AGENTS.md`. shadcn here is the `base-nova` style on `@base-ui/react`, so components use `render={...}` instead of `asChild`, and a Link inside a Button needs `nativeButton={false}`.
+
+## 11. Not done yet (known gaps, in order of value)
+- About 22 adversarial cases that should ESCALATE get an RFI, because their mule, romance or crypto wording isn't recognised. Each costs 3, not 10. Fix by widening the patterns, keeping dev output unchanged.
+- 8 adversarial closable cases get an RFI or ESCALATE (cost 3 each). Examples: euro invoices that are pennies off in sterling, and a 4.96x own-account case just under the 5x line.
+- `len(chats) >= 2` → ESCALATE should require two different stories (from TRAIL_RESEARCH.md TOP-3). It's fine on dev, but there is a false-positive risk on unseen cases.
+- Extra CLOSE checks from TRAIL_RESEARCH.md TOP-4:
+  - a redundancy letter must be dated before the sale
+  - the relocation letter's country must equal the payee country
+  - the employer named in the contract must equal the payer
+- No paraphrase test suite (`tests/paraphrase_test.py`) and no audit trace yet.
