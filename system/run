@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# ControlTrail: system/run <institution folder> <output file>
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+py=python3
+"$py" -c "" 2>/dev/null || py=python
+exec "$py" "$here/controltrail.py" "$1" "$2"

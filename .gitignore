@@ -1,0 +1,9 @@
+institutions/
+data/
+.env
+*.tgz
+*.zip
+system/cache/
+__pycache__/
+CLAUDE.md
+labels/
