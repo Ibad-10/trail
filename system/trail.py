@@ -684,6 +684,18 @@ def explain(c):
                              else "The payments go to the invoiced supplier, which explains %s." % s),
                          c.doc_ids(invs), c.doc_ids(rvf), [t["transaction_id"] for t in outs])
         if c.has("TM03", "TM06", "TM01"):
+            # Near miss: an invoice amount within 1% of a payment but not exact (e.g. currency rounding).
+            # Never a CLOSE (amounts must match to the penny); ask for the corrected invoice instead of escalating.
+            pays = [t for t in c.alert_txns + c.window_txns if t["direction"] == "out"]
+            near = [(d, t, a) for d in invs for a in amounts_in(d["text"]) for t in pays
+                    if a > 0 and not same_amount(a, t["amount_gbp"]) and abs(a - t["amount_gbp"]) <= 0.01 * a]
+            if near and not c.docs_of("staff_note"):
+                d0, t0, a0 = near[0]
+                return Decision("RFI_PURPOSE_DOCUMENTS",
+                                "Invoice %s shows %s but the payment on %s was %s, a difference of %s, so the amounts do not match exactly. "
+                                "Ask %s for the corrected invoice or the payment confirmation showing the exact amount paid." % (
+                                    d0["doc_id"], gbp(a0), t0["booked_at"][:10], gbp(t0["amount_gbp"]), gbp(abs(a0 - t0["amount_gbp"])), first),
+                                c.ev([d0["doc_id"]], [t0["transaction_id"]], c.alert_txn_ids))
             return Decision("ESC_INVOICE_MISMATCH",
                             "The invoices on file (%s) do not match the payments behind the alerts (%s). The invoices do not support the payments." % (
                                 ", ".join(c.doc_ids(invs)), s),
@@ -1004,6 +1016,10 @@ def finalise(c, d):
     if not ev:
         ev = c.alert_txn_ids[:6]
     reason = re.sub(r"\s+", " ", d.reason).strip()
+    # UK date style in reasons: 2026-09-15 -> 15 September 2026
+    reason = re.sub(r"(?<![\w-])(\d{4})-(\d{2})-(\d{2})(?![\w-])",
+                    lambda m: "%d %s %s" % (int(m.group(3)), list(MONTHS)[int(m.group(2)) - 1].capitalize(), m.group(1))
+                    if 1 <= int(m.group(2)) <= 12 else m.group(0), reason)
     reason = reason.replace("..", ".")
     return {"case_id": c.row["case_id"], "alert_ids": list(c.row["alert_ids"]), "verdict": d.verdict,
             "reason_code": d.code, "reason": reason, "evidence": ev}
