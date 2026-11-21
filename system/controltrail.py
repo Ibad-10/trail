@@ -292,8 +292,13 @@ def resolve_list(case, a):
     if rows and pay_date:
         active = [r for r in rows if (r[1] is None or r[1] <= pay_date) and (r[2] is None or r[2] >= pay_date)]
         if active:
-            return "LISTED", "%s, the person on internal list entry %s, was %s at the payment date (%s)" % (
-                list_name, entry_id, active[0][0] or "an officer", active[0][3]), ev + [r[3] for r in active]
+            role = active[0][0] or "officer"
+            if role.lower() in ("director", "secretary", "officer"):
+                role = "a %s" % role.lower()
+            else:
+                role = "a person with significant control (%s)" % (role[0].lower() + role[1:])
+            return "LISTED", "%s, the person on internal list entry %s, was %s of the counterparty when the %s payment was made on %s (%s)" % (
+                list_name, entry_id, role, gbp(pay["amount_gbp"]), pay["booked_at"][:10], active[0][3]), ev + [r[3] for r in active]
         ended = max(r[2] for r in rows if r[2])
         return "DIFFERENT", "%s, the person on internal list entry %s, had left the counterparty by %s, before the %s payment on %s (%s)" % (
             list_name, entry_id, ended.strftime("%d %B %Y").lstrip("0"), gbp(pay["amount_gbp"]), pay["booked_at"][:10],

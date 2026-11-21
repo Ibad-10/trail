@@ -7,3 +7,4 @@ system/cache/
 __pycache__/
 CLAUDE.md
 labels/
+viewer/data.js
